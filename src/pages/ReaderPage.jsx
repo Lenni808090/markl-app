@@ -6,6 +6,8 @@ export default function ReaderPage() {
   const { chapterId } = useParams();
   const [pages, setPages] = useState([]);
   const [mangaId, setMangaId] = useState(null);
+  const [mangaTitle, setMangaTitle] = useState(null);
+  const [chapterLabel, setChapterLabel] = useState(null);
   const [prevChapterId, setPrevChapterId] = useState(null);
   const [nextChapterId, setNextChapterId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,7 +26,7 @@ export default function ReaderPage() {
           params: { chapterId },
         });
 
-        const { baseUrl, chapter, mangaId: mid } = response.data;
+        const { baseUrl, chapter, mangaId: mid, mangaTitle: mTitle, chapterNumber: chNum, chapterTitle: chTitle } = response.data;
         const hash = chapter?.hash;
         const filenames = chapter?.data ?? chapter?.dataSaver ?? [];
         const quality = chapter?.data ? 'data' : 'data-saver';
@@ -42,6 +44,11 @@ export default function ReaderPage() {
 
         setPages(urls);
         setMangaId(mid || null);
+        setMangaTitle(mTitle || null);
+        const label = chNum != null && chNum !== ''
+          ? (chTitle ? `Ch. ${chNum} – ${chTitle}` : `Ch. ${chNum}`)
+          : (chTitle || null);
+        setChapterLabel(label);
       } catch (err) {
         setError(err.response?.data?.error || 'Failed to load chapter');
         setPages([]);
@@ -99,9 +106,25 @@ export default function ReaderPage() {
 
   return (
     <div className="min-h-screen bg-black">
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2 bg-black/90 border-b border-gray-800">
-        <Link to="/" className="text-gray-400 hover:text-white text-sm">← Back</Link>
-        <span className="text-gray-500 text-sm">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 px-4 py-2 bg-black/90 border-b border-gray-800 min-h-12">
+        <Link to="/" className="text-gray-400 hover:text-white text-sm shrink-0">← Back</Link>
+        <div className="flex flex-col items-center min-w-0 flex-1 text-center">
+          {mangaTitle && (
+            <Link
+              to={mangaId ? `/manga/${mangaId}` : '/'}
+              className="text-white font-medium truncate max-w-full hover:text-blue-400 transition-colors"
+              title={mangaTitle}
+            >
+              {mangaTitle}
+            </Link>
+          )}
+          {chapterLabel && (
+            <span className="text-gray-400 text-sm truncate max-w-full" title={chapterLabel}>
+              {chapterLabel}
+            </span>
+          )}
+        </div>
+        <span className="text-gray-500 text-sm shrink-0">
           {pages.length} page{pages.length !== 1 ? 's' : ''}
         </span>
       </div>

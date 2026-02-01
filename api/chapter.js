@@ -33,8 +33,29 @@ export default async function handler(req, res) {
 
     if (chapterRes.ok) {
       const chapterData = await chapterRes.json();
+      const attrs = chapterData.data?.attributes;
+      if (attrs) {
+        data.chapterNumber = attrs.chapter;
+        data.chapterTitle = attrs.title?.trim() || null;
+      }
       const mangaRel = chapterData.data?.relationships?.find((r) => r.type === "manga");
-      if (mangaRel?.id) data.mangaId = mangaRel.id;
+      const mid = mangaRel?.id;
+      if (mid) {
+        data.mangaId = mid;
+        try {
+          const mangaRes = await fetch(new URL(`/manga/${mid}`, MANGADEX_BASE).toString(), {
+            method: "GET",
+            headers: { Accept: "application/json" },
+          });
+          if (mangaRes.ok) {
+            const mangaJson = await mangaRes.json();
+            const t = mangaJson.data?.attributes?.title || {};
+            data.mangaTitle = t.en || t["ja-ro"] || t.ja || Object.values(t)[0] || null;
+          }
+        } catch {
+          // leave mangaTitle unset
+        }
+      }
     }
 
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
