@@ -11,19 +11,32 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing or invalid chapter id" });
   }
 
+  const id = chapterId.trim();
+
   try {
-    const url = new URL(`/at-home/server/${chapterId.trim()}`, MANGADEX_BASE);
+    const [atHomeRes, chapterRes] = await Promise.all([
+      fetch(new URL(`/at-home/server/${id}`, MANGADEX_BASE).toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      }),
+      fetch(new URL(`/chapter/${id}`, MANGADEX_BASE).toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      }),
+    ]);
 
-    const apiRes = await fetch(url.toString(), {
-      method: "GET",
-      headers: { Accept: "application/json" },
-    });
-
-    if (!apiRes.ok) {
-      return res.status(apiRes.status).json({ error: "Mangadex API error" });
+    if (!atHomeRes.ok) {
+      return res.status(atHomeRes.status).json({ error: "Mangadex API error" });
     }
 
-    const data = await apiRes.json();
+    const data = await atHomeRes.json();
+
+    if (chapterRes.ok) {
+      const chapterData = await chapterRes.json();
+      const mangaRel = chapterData.data?.relationships?.find((r) => r.type === "manga");
+      if (mangaRel?.id) data.mangaId = mangaRel.id;
+    }
+
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     return res.status(200).json(data);
   } catch (err) {

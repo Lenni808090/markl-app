@@ -5,6 +5,9 @@ import axios from 'axios';
 export default function ReaderPage() {
   const { chapterId } = useParams();
   const [pages, setPages] = useState([]);
+  const [mangaId, setMangaId] = useState(null);
+  const [prevChapterId, setPrevChapterId] = useState(null);
+  const [nextChapterId, setNextChapterId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -15,11 +18,13 @@ export default function ReaderPage() {
       try {
         setLoading(true);
         setError(null);
+        setNextChapterId(null);
+        setPrevChapterId(null);
         const response = await axios.get('/api/chapter', {
           params: { chapterId },
         });
 
-        const { baseUrl, chapter } = response.data;
+        const { baseUrl, chapter, mangaId: mid } = response.data;
         const hash = chapter?.hash;
         const filenames = chapter?.data ?? chapter?.dataSaver ?? [];
         const quality = chapter?.data ? 'data' : 'data-saver';
@@ -36,6 +41,7 @@ export default function ReaderPage() {
         });
 
         setPages(urls);
+        setMangaId(mid || null);
       } catch (err) {
         setError(err.response?.data?.error || 'Failed to load chapter');
         setPages([]);
@@ -46,6 +52,33 @@ export default function ReaderPage() {
 
     fetchChapter();
   }, [chapterId]);
+
+  useEffect(() => {
+    if (!mangaId || !chapterId) return;
+
+    const fetchAdjacent = async () => {
+      try {
+        const response = await axios.get('/api/chapters', {
+          params: {
+            mangaId,
+            limit: 500,
+            'order[chapter]': 'asc',
+            'translatedLanguage[]': 'en',
+          },
+        });
+        const list = response.data.data || [];
+        const idx = list.findIndex((ch) => ch.id === chapterId);
+        if (idx !== -1) {
+          if (idx > 0) setPrevChapterId(list[idx - 1].id);
+          if (idx < list.length - 1) setNextChapterId(list[idx + 1].id);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fetchAdjacent();
+  }, [mangaId, chapterId]);
 
   if (loading) {
     return (
@@ -73,7 +106,7 @@ export default function ReaderPage() {
         </span>
       </div>
 
-      <div className="flex flex-col items-center w-full max-w-4xl mx-auto py-4 gap-2 overflow-y-auto">
+      <div className="flex flex-col items-center w-full max-w-4xl mx-auto py-4 gap-2">
         {pages.map((src, i) => (
           <img
             key={i}
@@ -83,6 +116,27 @@ export default function ReaderPage() {
             loading="lazy"
           />
         ))}
+
+        {(prevChapterId || nextChapterId) && (
+          <div className="flex flex-wrap items-center justify-center gap-4 py-8">
+            {prevChapterId && (
+              <Link
+                to={`/reader/${prevChapterId}`}
+                className="px-6 py-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors"
+              >
+                ← Previous chapter
+              </Link>
+            )}
+            {nextChapterId && (
+              <Link
+                to={`/reader/${nextChapterId}`}
+                className="px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors"
+              >
+                Next chapter →
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
